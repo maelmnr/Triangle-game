@@ -1,5 +1,7 @@
-streamlit
-geopy
-folium
-streamlit-folium
-shapely
+streamlit>=1.35.0
+folium>=0.16.0
+streamlit-folium>=0.17.0
+geopy>=2.4.0
+shapely>=2.0.0
+pyproj>=3.6.1
+streamlit-autorefresh>=0.0.3
