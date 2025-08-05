@@ -1,0 +1,5 @@
+streamlit
+geopy
+folium
+streamlit-folium
+shapely
