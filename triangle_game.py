@@ -52,6 +52,7 @@ GAMES_STORE = get_games_store()
 
 POP_RE = re.compile(r"\d+")
 GEOD = Geod(ellps="WGS84")
+MAX_PLAYERS = 3
 
 
 def parse_population(raw: str | None) -> int:
@@ -104,13 +105,18 @@ def new_game_state() -> Dict[str, Any]:
         "triangle_names": [],
         "proj": None,
         "poly_proj": None,
-        "submissions": {1: [], 2: []},
-        "scores": {1: 0, 2: 0},
+        "submissions": {p: [] for p in range(1, MAX_PLAYERS + 1)},
+        "scores": {p: 0 for p in range(1, MAX_PLAYERS + 1)},
         "turn": 1,
         "rounds": 3,
-        "submitted_counts": {1: 0, 2: 0},
+        "submitted_counts": {p: 0 for p in range(1, MAX_PLAYERS + 1)},
         "stage": "setup",
+        "players": [1],
     }
+
+
+def next_player(cur: int) -> int:
+    return 1 if cur == MAX_PLAYERS else cur + 1
 
 # ---------------------------------------------------------------------------
 # URL params
@@ -120,7 +126,7 @@ qp = st.query_params
 current_game_id = qp.get("game")
 current_player = int(qp.get("player") or 0)
 
-if not current_game_id or current_player not in (1, 2):
+if not current_game_id or current_player not in range(1, MAX_PLAYERS + 1):
     st.header("🆕 New or Join a Game")
     with st.form("join"):
         mode = st.radio("Choose", ["Create new game", "Join existing game"])
@@ -140,11 +146,20 @@ if not current_game_id or current_player not in (1, 2):
         GAMES_STORE[current_game_id]["rounds"] = int(rounds)
         GAMES_STORE[current_game_id]["stage"] = "triangle"
     else:
-        if existing.strip() not in GAMES_STORE:
+        gid = existing.strip()
+        if gid not in GAMES_STORE:
             st.error("Game ID not found – ask creator.")
             st.stop()
-        current_game_id = existing.strip()
-        current_player = 2
+        game_join = GAMES_STORE[gid]
+        for p in range(2, MAX_PLAYERS + 1):
+            if p not in game_join["players"]:
+                current_player = p
+                game_join["players"].append(p)
+                break
+        else:
+            st.error("Game is full – max 3 players.")
+            st.stop()
+        current_game_id = gid
     qp.update({"game": current_game_id, "player": str(current_player)})
     st.rerun()
 
@@ -162,7 +177,7 @@ def list_submitted_names():
     st.write("#### 📝 Submitted so far")
     if game["triangle_names"]:
         st.markdown("**Triangle:** " + ", ".join(game["triangle_names"]))
-    for p in (1, 2):
+    for p in range(1, MAX_PLAYERS + 1):
         names = [c["short"] for c in game["submissions"][p]]
         if names:
             st.markdown(f"Player {p}: " + ", ".join(names))
@@ -185,7 +200,7 @@ if game["stage"] == "triangle":
                 lat, lon, addr, _ = geo
                 game["triangle"].append((lat, lon))
                 game["triangle_names"].append(short_name(addr))
-                game["turn"] = 2 if game["turn"] == 1 else 1
+                game["turn"] = next_player(game["turn"])
                 if len(game["triangle"]) == 3:
                     lat_c = sum(lat for lat, _ in game["triangle"]) / 3
                     lon_c = sum(lon for _, lon in game["triangle"]) / 3
@@ -208,7 +223,7 @@ if game["stage"] == "scoring":
     st.header("🏃 Play phase (scores hidden)")
     list_submitted_names()
 
-    total_turns = game["rounds"] * 2
+    total_turns = game["rounds"] * MAX_PLAYERS
     if sum(game["submitted_counts"].values()) >= total_turns:
         game["stage"] = "finished"
         st.rerun()
@@ -240,7 +255,7 @@ if game["stage"] == "scoring":
                 game["submitted_counts"][current_player] += 1
                 if inside and pop:
                     game["scores"][current_player] += pop
-                game["turn"] = 2 if game["turn"] == 1 else 1
+                game["turn"] = next_player(game["turn"])
                 st.success("City submitted ✔️")
                 st.rerun()
             else:
@@ -266,8 +281,8 @@ if game["stage"] == "finished":
             folium.PolyLine(densify_gc(tri[i], tri[(i + 1) % 3]), color="red", weight=2).add_to(m)
         folium.Polygon([*tri, tri[0]], color="#ff0000", weight=0, fill=True, fill_opacity=0.15).add_to(m)
         # submissions
-        cols = {1: "green", 2: "purple"}
-        for p in (1, 2):
+        cols = {1: "green", 2: "purple", 3: "orange"}
+        for p in range(1, MAX_PLAYERS + 1):
             for c in game["submissions"][p]:
                 base_col = cols[p]  # unique color per player
                 icon_name = "remove" if c["outside"] else "user"  # different glyph if outside
@@ -281,14 +296,14 @@ if game["stage"] == "finished":
     st_folium(build_map(), width=850, height=550)
 
     st.subheader("Final Scores")
-    cols = st.columns(2)
-    for p, col in zip((1, 2), cols):
+    cols = st.columns(MAX_PLAYERS)
+    for p, col in zip(range(1, MAX_PLAYERS + 1), cols):
         col.metric(f"Player {p}", f"{game['scores'][p]:,}")
 
     max_score = max(game["scores"].values())
     winners = [p for p, s in game["scores"].items() if s == max_score]
     if len(winners) == 1:
-        st.header(f"🥇 Player {winners[0    ]} wins!")
+        st.header(f"🥇 Player {winners[0]} wins!")
     else:
         st.header("🤝 It's a tie!")
 
