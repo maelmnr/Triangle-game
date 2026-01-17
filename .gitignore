@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+
+# Data files (optionnel - vous pouvez commit leaderboard.json vide)
+# data/leaderboard.json
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# CSV volumineux (trop gros pour GitHub)
+data/communes-france-2025.csv
+
+# Fichiers inutiles
+streamlit_city_locator.py
+
+# Anciens dossiers non utilisés
+game/
+tests/

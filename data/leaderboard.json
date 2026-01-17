@@ -1,0 +1,32 @@
+[
+  {
+    "timestamp": 1768661876,
+    "game_id": "479b4111",
+    "player": "Malou",
+    "score": 0,
+    "best_score": 14002598,
+    "efficiency": 0.0,
+    "rounds": 1,
+    "difficulty": "Medium"
+  },
+  {
+    "timestamp": 1768661958,
+    "game_id": "7c54deaa",
+    "player": "Malou",
+    "score": 0,
+    "best_score": 44960,
+    "efficiency": 0.0,
+    "rounds": 1,
+    "difficulty": "Medium"
+  },
+  {
+    "timestamp": 1768661958,
+    "game_id": "7c54deaa",
+    "player": "Yvon",
+    "score": 0,
+    "best_score": 44960,
+    "efficiency": 0.0,
+    "rounds": 1,
+    "difficulty": "Medium"
+  }
+]
