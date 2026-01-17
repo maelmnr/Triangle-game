@@ -160,10 +160,7 @@ def add_leaderboard_entries(new_entries: List[Dict[str, Any]]) -> None:
 
 
 def render_html_block(markup: str) -> None:
-    if hasattr(st, "html"):
-        st.html(markup)
-    else:
-        st.markdown(markup, unsafe_allow_html=True)
+    st.markdown(markup, unsafe_allow_html=True)
 
 
 def inject_lobby_styles() -> None:
@@ -602,7 +599,7 @@ def inject_lobby_styles() -> None:
         </style>
         """
     ).strip()
-    render_html_block(style_block)
+    st.markdown(style_block, unsafe_allow_html=True)
     render_html_block(
         textwrap.dedent(
             """
