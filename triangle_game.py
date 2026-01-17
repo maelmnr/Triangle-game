@@ -333,6 +333,7 @@ def inject_lobby_styles() -> None:
             border: 2px solid transparent;
             border-radius: 14px;
             min-height: 46px;
+            color: var(--text-dark) !important;
         }
 
         div[data-baseweb="input"] input:focus,
@@ -340,6 +341,22 @@ def inject_lobby_styles() -> None:
             border-color: var(--accent-coral);
             background: #ffffff;
             box-shadow: none;
+        }
+
+        /* Texte visible dans les selects et inputs */
+        div[data-baseweb="select"] span,
+        div[data-baseweb="select"] div {
+            color: var(--text-dark) !important;
+        }
+
+        /* Number input */
+        input[type="number"] {
+            color: var(--text-dark) !important;
+        }
+
+        /* Labels des formulaires */
+        label {
+            color: var(--text-dark) !important;
         }
 
         button[kind="primary"] {
@@ -401,6 +418,57 @@ def inject_lobby_styles() -> None:
             vertical-align: middle;
             overflow: hidden;
             text-overflow: ellipsis;
+        }
+
+        /* Mobile: cacher certaines colonnes */
+        @media (max-width: 768px) {
+            .leaderboard-table th:nth-child(6),
+            .leaderboard-table td:nth-child(6),
+            .leaderboard-table th:nth-child(7),
+            .leaderboard-table td:nth-child(7) {
+                display: none;
+            }
+
+            .leaderboard-table th:nth-child(1) { width: 40px; }
+            .leaderboard-table th:nth-child(2) { width: 30%; }
+            .leaderboard-table th:nth-child(3) { width: 25%; }
+            .leaderboard-table th:nth-child(4) { width: 20%; }
+            .leaderboard-table th:nth-child(5) { width: 25%; }
+
+            .leaderboard-table th,
+            .leaderboard-table td {
+                padding: 8px 4px;
+                font-size: 0.7rem;
+            }
+
+            .player-avatar {
+                width: 24px;
+                height: 24px;
+                font-size: 0.65rem;
+            }
+
+            .rank-badge {
+                width: 28px;
+                height: 28px;
+                font-size: 0.75rem;
+            }
+
+            .efficiency-bar {
+                width: 50px;
+            }
+
+            .efficiency-text {
+                font-size: 0.7rem;
+            }
+
+            .score-value {
+                font-size: 0.85rem;
+            }
+
+            .difficulty-pill {
+                padding: 4px 8px;
+                font-size: 0.65rem;
+            }
         }
 
         .leaderboard-row:hover {
@@ -490,6 +558,45 @@ def inject_lobby_styles() -> None:
             .lobby-header {
                 flex-direction: column;
                 align-items: flex-start;
+            }
+
+            .logo-text h1 {
+                font-size: 1.8rem;
+            }
+
+            .logo-text p {
+                font-size: 0.85rem;
+            }
+
+            .section-title {
+                font-size: 1.1rem;
+            }
+
+            div[data-testid="stAppViewContainer"] > .main .block-container {
+                padding-top: 20px;
+                padding-bottom: 40px;
+            }
+        }
+
+        /* Très petits écrans */
+        @media (max-width: 480px) {
+            .logo-text h1 {
+                font-size: 1.5rem;
+            }
+
+            .logo-mark {
+                width: 50px;
+                height: 50px;
+            }
+
+            .section-title {
+                font-size: 1rem;
+            }
+
+            button[kind="primary"],
+            button[kind="secondary"] {
+                font-size: 0.9rem;
+                padding: 0.5rem 0.8rem !important;
             }
         }
         </style>
