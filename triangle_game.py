@@ -163,6 +163,18 @@ def render_html_block(markup: str) -> None:
     st.markdown(markup, unsafe_allow_html=True)
 
 
+def set_active_game(gid: str, player: int, key: str | None) -> None:
+    st.session_state["active_game"] = gid
+    st.session_state["active_player"] = player
+    st.session_state["active_key"] = key or ""
+
+
+def clear_active_game() -> None:
+    st.session_state.pop("active_game", None)
+    st.session_state.pop("active_player", None)
+    st.session_state.pop("active_key", None)
+
+
 def inject_lobby_styles() -> None:
     style_block = textwrap.dedent(
         """
@@ -1445,6 +1457,7 @@ def render_lobby(session_id: str) -> None:
         ok, key = claim_seat(state, 1, session_id)
         if ok:
             st.query_params.update({"game": gid, "player": "1", "key": key})
+            set_active_game(gid, 1, key)
         st.rerun()
 
     render_html_block('<span class="card-anchor"></span>')
@@ -1482,6 +1495,7 @@ def render_lobby(session_id: str) -> None:
         ok, key = claim_seat(state, 1, session_id)
         if ok:
             st.query_params.update({"game": gid, "player": "1", "key": key})
+            set_active_game(gid, 1, key)
         st.rerun()
 
     render_html_block('<span class="card-anchor"></span>')
@@ -1517,13 +1531,14 @@ def render_lobby(session_id: str) -> None:
             if available:
                 seat_cols = st.columns(len(available))
                 for col, seat in zip(seat_cols, available):
-                    if col.button(f"Join P{seat}", key=f"join_{gid}_{seat}"):
-                        ok, key = claim_seat(state, seat, session_id)
-                        if ok:
-                            st.query_params.update(
-                                {"game": gid, "player": str(seat), "key": key}
-                            )
-                            st.rerun()
+                        if col.button(f"Join P{seat}", key=f"join_{gid}_{seat}"):
+                            ok, key = claim_seat(state, seat, session_id)
+                            if ok:
+                                st.query_params.update(
+                                    {"game": gid, "player": str(seat), "key": key}
+                                )
+                                set_active_game(gid, seat, key)
+                                st.rerun()
                         else:
                             st.warning("Seat already taken.")
             else:
@@ -1541,6 +1556,7 @@ def render_seat_picker(gid: str, state: Dict[str, Any], session_id: str) -> None
         st.warning("Game is full.")
         if st.button("Back to lobby"):
             st.query_params.clear()
+            clear_active_game()
             st.rerun()
         return
 
@@ -1550,12 +1566,14 @@ def render_seat_picker(gid: str, state: Dict[str, Any], session_id: str) -> None
             ok, key = claim_seat(state, seat, session_id)
             if ok:
                 st.query_params.update({"game": gid, "player": str(seat), "key": key})
+                set_active_game(gid, seat, key)
                 st.rerun()
             else:
                 st.warning("Seat already taken.")
 
     if st.button("Back to lobby", key="back_lobby"):
         st.query_params.clear()
+        clear_active_game()
         st.rerun()
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -1568,6 +1586,11 @@ player_raw = qp.get("player")
 seat_key = qp.get("key")
 if isinstance(seat_key, list):
     seat_key = seat_key[0] if seat_key else None
+if not gid:
+    gid = st.session_state.get("active_game")
+    if gid:
+        player_raw = st.session_state.get("active_player")
+        seat_key = st.session_state.get("active_key")
 try:
     player_id = int(player_raw) if player_raw else 0
 except (ValueError, TypeError):
@@ -1579,6 +1602,7 @@ if gid and gid not in STORE:
     st.error("Game not found.")
     if st.button("Back to lobby"):
         st.query_params.clear()
+        clear_active_game()
         st.rerun()
     st.stop()
 
@@ -1602,14 +1626,17 @@ if not ok:
         ok, key = claim_seat(state, player_id, session_id, force=True)
         if ok and key:
             st.query_params.update({"game": gid, "player": str(player_id), "key": key})
+            set_active_game(gid, player_id, key)
         st.rerun()
     if st.button("Choose another seat"):
         st.query_params.clear()
         st.query_params.update({"game": gid})
+        clear_active_game()
         st.rerun()
     st.stop()
 if key and seat_key != key:
     st.query_params.update({"game": gid, "player": str(player_id), "key": key})
+    set_active_game(gid, player_id, key)
     st.rerun()
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -1984,4 +2011,5 @@ if state["stage"] == "finished":
     if st.button("New game"):
         del STORE[gid]
         st.query_params.clear()
+        clear_active_game()
         st.rerun()
