@@ -1454,7 +1454,7 @@ def render_lobby(session_id: str) -> None:
                 </div>
                 <div class="logo-text">
                     <h1>Triangle Game</h1>
-                    <p>Find cities within a geographic triangle</p>
+                    <p>Formez un triangle avec 3 villes. À chaque tour, proposez une ville à l'intérieur : sa population s'ajoute au score (villes uniques).</p>
                 </div>
             </div>
             """
