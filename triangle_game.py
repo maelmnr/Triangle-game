@@ -175,6 +175,38 @@ def clear_active_game() -> None:
     st.session_state.pop("active_key", None)
 
 
+def _first_param(value: Any) -> str | None:
+    if isinstance(value, list):
+        return value[0] if value else None
+    if value is None:
+        return None
+    return str(value)
+
+
+def get_query_params() -> Dict[str, str | None]:
+    if hasattr(st, "query_params"):
+        qp = st.query_params
+        return {
+            "game": _first_param(qp.get("game")),
+            "player": _first_param(qp.get("player")),
+            "key": _first_param(qp.get("key")),
+        }
+    qp = st.experimental_get_query_params()
+    return {
+        "game": _first_param(qp.get("game")),
+        "player": _first_param(qp.get("player")),
+        "key": _first_param(qp.get("key")),
+    }
+
+
+def set_query_params(params: Dict[str, Any]) -> None:
+    clean = {k: str(v) for k, v in params.items() if v is not None}
+    if hasattr(st, "query_params"):
+        st.query_params.update(clean)
+    else:
+        st.experimental_set_query_params(**clean)
+
+
 def inject_lobby_styles() -> None:
     style_block = textwrap.dedent(
         """
@@ -819,6 +851,31 @@ def city_catalog() -> List[Tuple[int, str, str, float, float]]:
         catalog.append((pop, name, country, lat, lon))
     catalog.sort(key=lambda item: item[0], reverse=True)
     return catalog
+
+
+@st.cache_resource
+def city_name_index() -> Dict[str, Tuple[int, str, str, float, float]]:
+    catalog = city_catalog()
+    index: Dict[str, Tuple[int, str, str, float, float]] = {}
+    for pop, name, country, lat, lon in catalog:
+        norm = normalize_city_name(name)
+        if not norm:
+            continue
+        if norm not in index or pop > index[norm][0]:
+            index[norm] = (pop, name, country, lat, lon)
+    return index
+
+
+def fast_city_lookup(name: str) -> Tuple[float, float, str, str, int] | None:
+    index = city_name_index()
+    if not index:
+        return None
+    norm = normalize_city_name(name)
+    entry = index.get(norm)
+    if not entry:
+        return None
+    pop, city_name, _country, lat, lon = entry
+    return (lat, lon, city_name, city_name, int(pop))
 
 
 @st.cache_data(show_spinner=False)
@@ -1723,7 +1780,9 @@ def random_triangle(difficulty: str | None = None):
         choices = pick_triangle_candidates(level)
         data = []
         for c in choices:
-            geo, _ = bilingual_geocode(c, require_population=False)
+            geo = fast_city_lookup(c)
+            if not geo:
+                geo, _ = bilingual_geocode(c, require_population=False)
             data.append(geo)
         if not all(data):
             continue
@@ -1860,41 +1919,10 @@ if state["stage"] == "scoring":
             else:
                 show_geo_error(reason)
 
-# Name entry stage
+# Results rendering
 # ──────────────────────────────────────────────────────────────────────────────
 
-if state["stage"] == "name_entry":
-    st.header("✨ Almost done")
-    st.write("Enter your name to appear on the leaderboard.")
-    current_name = state["player_names"].get(player_id, "")
-    name_input = st.text_input("Your name", value=current_name, key="player_name")
-    if st.button("Save name"):
-        cleaned = name_input.strip()
-        if cleaned:
-            state["player_names"][player_id] = cleaned[:40]
-            st.rerun()
-        else:
-            st.warning("Enter a name.")
-
-    missing = [
-        p for p in range(1, players + 1) if not state["player_names"].get(p)
-    ]
-    if not missing:
-        state["stage"] = "finished"
-        st.rerun()
-    else:
-        waiting = ", ".join(player_label_func(p, state) for p in missing)
-        st.info(f"Waiting for: {waiting}")
-        wait_for_state_change(
-            lambda: state["stage"] != "name_entry"
-            or all(state["player_names"].get(p) for p in range(1, players + 1))
-        )
-        st.stop()
-
-# Finished stage – reveal everything
-# ──────────────────────────────────────────────────────────────────────────────
-
-if state["stage"] == "finished":
+def render_results(allow_leaderboard: bool, allow_reset: bool) -> None:
     st.success("All rounds finished - revealing results")
 
     tri = state["triangle"]
@@ -1981,7 +2009,7 @@ if state["stage"] == "finished":
             efficiency = state["scores"][p] / best_score if best_score else 0
             col.caption(f"Efficiency: {efficiency:.1%}")
 
-    if best_per_player and not state.get("leaderboard_saved"):
+    if best_per_player and allow_leaderboard and not state.get("leaderboard_saved"):
         entries = []
         for p in range(1, players + 1):
             score = int(state["scores"][p])
@@ -2008,8 +2036,55 @@ if state["stage"] == "finished":
     else:
         st.header("🤝 Tie between: " + ", ".join(map(str, winners)))
 
-    if st.button("New game"):
+    if allow_reset and st.button("New game"):
         del STORE[gid]
         st.query_params.clear()
         clear_active_game()
         st.rerun()
+
+# Name entry stage
+# ──────────────────────────────────────────────────────────────────────────────
+
+if state["stage"] == "name_entry":
+    st.header("✨ Almost done")
+    st.write("Enter your name to appear on the leaderboard.")
+    current_name = state["player_names"].get(player_id, "")
+    name_input = st.text_input("Your name", value=current_name, key="player_name")
+    if st.button("Save name"):
+        cleaned = name_input.strip()
+        if cleaned:
+            state["player_names"][player_id] = cleaned[:40]
+            st.rerun()
+        else:
+            st.warning("Enter a name.")
+
+    missing = [
+        p for p in range(1, players + 1) if not state["player_names"].get(p)
+    ]
+    if not missing:
+        state["stage"] = "finished"
+        st.rerun()
+
+    if state["player_names"].get(player_id):
+        if missing:
+            waiting = ", ".join(player_label_func(p, state) for p in missing)
+            st.info(f"Waiting for: {waiting}")
+            wait_for_state_change(
+                lambda: state["stage"] != "name_entry"
+                or all(state["player_names"].get(p) for p in range(1, players + 1))
+            )
+        render_results(allow_leaderboard=False, allow_reset=False)
+    else:
+        waiting = ", ".join(player_label_func(p, state) for p in missing)
+        st.info(f"Waiting for: {waiting}")
+        wait_for_state_change(
+            lambda: state["stage"] != "name_entry"
+            or all(state["player_names"].get(p) for p in range(1, players + 1))
+        )
+        st.stop()
+
+# Finished stage – reveal everything
+# ──────────────────────────────────────────────────────────────────────────────
+
+if state["stage"] == "finished":
+    render_results(allow_leaderboard=True, allow_reset=True)
